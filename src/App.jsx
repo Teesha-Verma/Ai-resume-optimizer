@@ -42,6 +42,7 @@ function App() {
               <Route element={<DashboardLayout />}>
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/analysis" element={<NewAnalysis />} />
+                <Route path="/analysis/new" element={<NewAnalysis />} />
                 <Route path="/results" element={<Results />} />
                 <Route path="/improvement" element={<Improvement />} />
                 <Route path="/versions" element={<Versions />} />

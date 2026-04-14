@@ -1,5 +1,6 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
+import { useResume } from '../../context/ResumeContext';
 import { 
   LayoutDashboard, 
   FileText, 
@@ -17,6 +18,7 @@ function cx(...inputs) {
 
 function Sidebar({ isOpen, setIsOpen }) {
   const location = useLocation();
+  const { activeAnalysisId, versions } = useResume(); // STEP 10: context awareness
 
   const navLinks = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
@@ -68,6 +70,21 @@ function Sidebar({ isOpen, setIsOpen }) {
           {navLinks.map((link) => {
             const Icon = link.icon;
             const isActive = location.pathname.startsWith(link.path);
+
+            // STEP 10: Intelligent badges
+            let badge = null;
+            if (link.path === '/results' && activeAnalysisId && !isActive) {
+              badge = (
+                <span className="ml-auto w-2 h-2 rounded-full bg-indigo-500 shadow-[0_0_6px_rgba(99,102,241,0.6)] shrink-0" title="Active analysis available" />
+              );
+            }
+            if (link.path === '/versions' && versions.length > 0 && !isActive) {
+              badge = (
+                <span className="ml-auto text-[9px] font-mono font-bold text-gray-500 bg-white/5 border border-white/10 rounded px-1.5 py-0.5 shrink-0">
+                  {versions.length}
+                </span>
+              );
+            }
             
             return (
               <NavLink
@@ -97,6 +114,9 @@ function Sidebar({ isOpen, setIsOpen }) {
                 )}>
                   {link.name}
                 </span>
+
+                {/* STEP 10: Badge rendering (only when sidebar is expanded) */}
+                {isOpen && badge}
               </NavLink>
             );
           })}

@@ -13,6 +13,13 @@ import {
   BrainCircuit
 } from 'lucide-react';
 
+// Confidence label mapping (STEP 8)
+const CONFIDENCE_MAP = {
+  HIGH: { label: 'High Confidence', color: 'text-green-400', bg: 'bg-green-500/10', border: 'border-green-500/20' },
+  MEDIUM: { label: 'Medium Confidence', color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
+  LOW: { label: 'Low Confidence', color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/20' },
+};
+
 function getScoreDetails(score) {
   if (score >= 80) return { color: 'text-green-400', bg: 'bg-green-500/10', border: 'border-green-500/20', confidence: 'High Confidence', stroke: '#4ade80' };
   if (score >= 60) return { color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20', confidence: 'Medium Confidence', stroke: '#facc15' };
@@ -102,8 +109,13 @@ function Results() {
     return <Navigate to="/analysis" replace />;
   }
 
-  const { score, breakdown, missingSkills, weakAreas, atsWarnings } = activeAnalysis;
+  const { score, breakdown, missingSkills = [], weakAreas = [], atsWarnings = [], confidence } = activeAnalysis;
   const scoreDetails = getScoreDetails(score);
+
+  // STEP 8: Use confidence from analysis object, fallback to score-derived
+  const confidenceInfo = CONFIDENCE_MAP[confidence] || CONFIDENCE_MAP[
+    score >= 75 ? 'HIGH' : score >= 55 ? 'MEDIUM' : 'LOW'
+  ];
 
   // Generate fake matched skills derived from missing (just for UI completeness)
   const matchedSkills = ['React', 'Node.js', 'System Architecture', 'Agile'];
@@ -135,8 +147,8 @@ function Results() {
         
         {/* BIG SCORE (Centerpiece) */}
         <div className="lg:col-span-5 bg-[#0e1220] border border-white/5 rounded-2xl shadow-lg p-8 flex flex-col items-center justify-center text-center relative overflow-hidden">
-          <div className={`absolute top-4 left-4 px-3 py-1 rounded-full text-[10px] font-mono tracking-widest uppercase border ${scoreDetails.bg} ${scoreDetails.color} ${scoreDetails.border}`}>
-            {scoreDetails.confidence}
+          <div className={`absolute top-4 left-4 px-3 py-1 rounded-full text-[10px] font-mono tracking-widest uppercase border ${confidenceInfo.bg} ${confidenceInfo.color} ${confidenceInfo.border}`}>
+            {confidenceInfo.label}
           </div>
           
           <div className="my-8">

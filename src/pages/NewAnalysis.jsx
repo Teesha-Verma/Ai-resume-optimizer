@@ -12,6 +12,7 @@ function NewAnalysis() {
   const [file, setFile] = useState(null);
   const [jobDescription, setJobDescription] = useState('');
   const [isDragging, setIsDragging] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false); // STEP 5: local loading
 
   // File Handlers
   const handleDragOver = (e) => {
@@ -45,16 +46,27 @@ function NewAnalysis() {
       toast.error('Invalid file format. Please upload a PDF.');
       return;
     }
+    // STEP 11: file size guard
+    if (selectedFile.size > 5 * 1024 * 1024) {
+      toast.error('File too large. Maximum size is 5 MB.');
+      return;
+    }
     setFile(selectedFile);
   };
 
   const submitAnalysis = async (e) => {
     e.preventDefault();
-    console.log("On form submit");
 
-    // Strict Validation
+    // STEP 11: rapid‑click prevention
+    if (isSubmitting || isGlobalLoading) return;
+
+    // STEP 11: strict validation
     if (!file) {
       toast.error('Please upload your resume PDF first.');
+      return;
+    }
+    if (!jobDescription || jobDescription.trim().length === 0) {
+      toast.error('Job Description is required.');
       return;
     }
     if (jobDescription.trim().length < 50) {
@@ -64,17 +76,23 @@ function NewAnalysis() {
 
     // Since we don't have a real PDF parser, we pass a mock text representation
     const mockExtractedText = `Extracted Text from ${file.name}`;
+
+    setIsSubmitting(true); // STEP 5: local loading ON
     
     try {
+      // STEP 3: try API → fallback is handled inside startAnalysis
       await startAnalysis(mockExtractedText, jobDescription);
-      
-      console.log("On navigation");
       navigate('/results');
     } catch (err) {
+      // STEP 4: error handling
       console.error('Analysis Failed', err);
-      toast.error('An error occurred during analysis.');
+      toast.error(err?.message || 'An error occurred during analysis.');
+    } finally {
+      setIsSubmitting(false); // STEP 5: local loading OFF
     }
   };
+
+  const isBusy = isSubmitting || isGlobalLoading;
 
   return (
     <div className="max-w-5xl mx-auto animate-in fade-in duration-500 space-y-6">
@@ -110,7 +128,7 @@ function NewAnalysis() {
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   className="px-6 py-2.5 bg-white/10 hover:bg-white/15 text-white text-sm font-medium rounded-lg transition-colors"
-                  disabled={isGlobalLoading}
+                  disabled={isBusy}
                 >
                   Browse Files
                 </button>
@@ -137,7 +155,7 @@ function NewAnalysis() {
                   type="button"
                   onClick={() => setFile(null)}
                   className="p-2 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-                  disabled={isGlobalLoading}
+                  disabled={isBusy}
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -159,7 +177,7 @@ function NewAnalysis() {
                 onChange={(e) => setJobDescription(e.target.value)}
                 placeholder="Paste the complete job description here... (e.g. Responsibilities, Requirements, Tech Stack)"
                 className="flex-1 bg-black/20 border border-white/10 rounded-xl p-4 text-gray-200 placeholder:text-gray-600 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 resize-none w-full"
-                disabled={isGlobalLoading}
+                disabled={isBusy}
               />
               <div className={`text-xs mt-2 text-right ${jobDescription.length < 50 && jobDescription.length > 0 ? 'text-amber-500' : 'text-gray-500'}`}>
                 {jobDescription.length} chars (aim for at least 300)
@@ -173,15 +191,15 @@ function NewAnalysis() {
         <div className="flex justify-end pt-4">
           <button 
             type="submit"
-            disabled={isGlobalLoading}
+            disabled={isBusy}
             className={`px-8 py-4 font-semibold rounded-xl text-lg transition-all flex items-center gap-2 ${
-              isGlobalLoading
+              isBusy
                 ? 'bg-indigo-500/20 text-indigo-400/50 cursor-not-allowed border border-indigo-500/10'
                 : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-[0_0_20px_rgba(79,70,229,0.3)] hover:shadow-[0_0_25px_rgba(79,70,229,0.5)]'
             }`}
           >
             <Sparkles className="w-5 h-5" />
-            {isGlobalLoading ? 'Initializing Analysis...' : 'Run Analysis'}
+            {isSubmitting ? 'Processing...' : isGlobalLoading ? 'Initializing Analysis...' : 'Run Analysis'}
           </button>
         </div>
       </form>
