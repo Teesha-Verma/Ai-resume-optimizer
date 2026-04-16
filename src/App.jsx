@@ -41,7 +41,7 @@ function App() {
             <Route element={<ProtectedRoute />}>
               <Route element={<DashboardLayout />}>
                 <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/analysis" element={<NewAnalysis />} />
+                <Route path="/analysis" element={<Navigate to="/analysis/new" replace />} />
                 <Route path="/analysis/new" element={<NewAnalysis />} />
                 <Route path="/results" element={<Results />} />
                 <Route path="/improvement" element={<Improvement />} />

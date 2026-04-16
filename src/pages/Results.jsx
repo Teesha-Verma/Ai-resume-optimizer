@@ -106,13 +106,13 @@ function Results() {
   const activeAnalysis = analyses.find(a => a.id === activeAnalysisId);
 
   if (!activeAnalysis) {
-    return <Navigate to="/analysis" replace />;
+    return <Navigate to="/analysis/new" replace />;
   }
 
   const { score, breakdown, missingSkills = [], weakAreas = [], atsWarnings = [], confidence } = activeAnalysis;
   const scoreDetails = getScoreDetails(score);
 
-  // STEP 8: Use confidence from analysis object, fallback to score-derived
+  // Use confidence from analysis object, fallback to score-derived
   const confidenceInfo = CONFIDENCE_MAP[confidence] || CONFIDENCE_MAP[
     score >= 75 ? 'HIGH' : score >= 55 ? 'MEDIUM' : 'LOW'
   ];
@@ -122,6 +122,17 @@ function Results() {
 
   return (
     <div className="max-w-5xl mx-auto animate-in fade-in duration-500 pb-20 space-y-8 relative">
+
+      {/* Low Confidence Warning Banner */}
+      {confidence === 'LOW' && (
+        <div className="flex items-center gap-3 px-5 py-3.5 bg-red-500/10 border border-red-500/20 rounded-xl text-red-300 text-sm animate-in fade-in duration-300">
+          <AlertTriangle className="w-5 h-5 text-red-400 shrink-0" />
+          <p>
+            <span className="font-semibold text-red-400">Low confidence analysis.</span>{' '}
+            The resume may lack sufficient data for accurate scoring. Consider providing a more detailed resume for better results.
+          </p>
+        </div>
+      )}
       
       {/* Sticky Top Bar over Header */}
       <div className="sticky top-20 z-20 -mx-4 px-4 py-3 bg-[rgba(7,9,15,0.85)] backdrop-blur-lg border-b border-indigo-500/20 mb-8 sm:rounded-b-2xl flex items-center justify-between shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)]">

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useResume } from '../context/ResumeContext';
-import { getImprovementSuggestions } from '../api/improvement';
+import { fetchImprovementBlocks, mergeSelectedChanges } from '../services/improvementService';
 import { 
   Save, 
   RotateCcw, 
@@ -13,52 +13,6 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-// ── STEP 12: Extra mock block variants for realism ───────────
-const MOCK_BLOCKS_POOL = [
-  [
-    {
-      id: 1, type: 'summary',
-      original: 'Responsible for managing databases and helping the team with deployments.',
-      improved: 'Architected and managed distributed PostgreSQL databases, accelerating deployment times by 40%.',
-      status: 'pending'
-    },
-    {
-      id: 2, type: 'experience',
-      original: 'Used React to build the frontend. It was good.',
-      improved: 'Spearheaded frontend development utilizing React and Redux, delivering a scalable UI architecture to 10,000+ DAU.',
-      status: 'pending'
-    },
-    {
-      id: 3, type: 'skills',
-      original: 'Skills: JS, HTML, CSS, Git, Docker maybe',
-      improved: 'Technical Skills: JavaScript (ES6+), HTML5, CSS3, Git Version Control, Docker Containerization',
-      status: 'pending'
-    }
-  ],
-  [
-    {
-      id: 1, type: 'summary',
-      original: 'I am a motivated software engineer looking for new opportunities.',
-      improved: 'Results-driven full-stack engineer with 4+ years delivering high-throughput APIs and responsive web applications serving 50K+ users.',
-      status: 'pending'
-    },
-    {
-      id: 2, type: 'experience',
-      original: 'Worked on backend services in my previous company.',
-      improved: 'Designed and optimized RESTful microservices handling 2M+ daily requests with 99.9% uptime across AWS infrastructure.',
-      status: 'pending'
-    },
-    {
-      id: 3, type: 'skills',
-      original: 'Python, SQL, some cloud stuff',
-      improved: 'Core: Python 3.x, PostgreSQL, Redis | Cloud: AWS (EC2, Lambda, S3), Terraform | Tools: GitHub Actions, Datadog',
-      status: 'pending'
-    }
-  ],
-];
-function pickRandom(pool) { return pool[Math.floor(Math.random() * pool.length)]; }
-// ──────────────────────────────────────────────────────────────
-
 function Improvement() {
   const navigate = useNavigate();
   const { activeAnalysisId, analyses, saveImprovementVersion } = useResume();
@@ -66,43 +20,42 @@ function Improvement() {
 
   const [blocks, setBlocks] = useState([]);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
-  const [isLoadingBlocks, setIsLoadingBlocks] = useState(false); // STEP 5: local loading
-  const [isSaving, setIsSaving] = useState(false);               // STEP 5 + 11: rapid-click
+  const [isLoadingBlocks, setIsLoadingBlocks] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (!activeAnalysis || blocks.length > 0) return;
 
     let cancelled = false;
 
-    const fetchBlocks = async () => {
+    const loadBlocks = async () => {
       setIsLoadingBlocks(true);
       try {
-        // STEP 4: try real API
-        const data = await getImprovementSuggestions({
-          analysisId: activeAnalysisId,
-          resumeText: activeAnalysis.resumeText
-        });
-        if (!cancelled && data.blocks) {
-          setBlocks(data.blocks.map(b => ({ ...b, status: b.status || 'pending' })));
-        }
-      } catch (_apiErr) {
-        // ── Fallback: mock blocks (backward-compatible) ──
-        console.warn('API unavailable – using local mock improvement blocks:', _apiErr.message);
+        // Service handles API-first + mock fallback
+        const fetchedBlocks = await fetchImprovementBlocks(
+          activeAnalysisId,
+          activeAnalysis.resumeText
+        );
         if (!cancelled) {
-          setBlocks(pickRandom(MOCK_BLOCKS_POOL).map(b => ({ ...b })));
+          setBlocks(fetchedBlocks);
+        }
+      } catch (err) {
+        console.error('Failed to load improvement blocks:', err);
+        if (!cancelled) {
+          toast.error('Failed to load improvement suggestions.');
         }
       } finally {
         if (!cancelled) setIsLoadingBlocks(false);
       }
     };
 
-    fetchBlocks();
+    loadBlocks();
     return () => { cancelled = true; };
   }, [activeAnalysis, activeAnalysisId, blocks.length]);
 
-  // STEP 7: guard — redirect when no active analysis
+  // Guard — redirect when no active analysis
   if (!activeAnalysis) {
-    return <Navigate to="/analysis" replace />;
+    return <Navigate to="/analysis/new" replace />;
   }
 
   const handleAction = (id, action) => {
@@ -114,15 +67,15 @@ function Improvement() {
     toast.success('Changes reset to pending.');
   };
 
-  // STEP 9: selectedChanges derived state
+  // Selected changes derived state
   const selectedChanges = useMemo(() => blocks.filter(b => b.status === 'accepted'), [blocks]);
   const pendingCount = useMemo(() => blocks.filter(b => b.status === 'pending').length, [blocks]);
 
   const handleSave = async () => {
-    // STEP 11: rapid-click prevention
+    // Rapid-click prevention
     if (isSaving) return;
 
-    // STEP 11: edge case — nothing accepted
+    // Edge case — nothing accepted
     if (selectedChanges.length === 0) {
       toast.error('Accept at least one suggestion before saving.');
       return;
@@ -130,12 +83,8 @@ function Improvement() {
 
     setIsSaving(true);
     try {
-      // Simulate merge
-      const finalContent = blocks.map(b => {
-        if (b.status === 'accepted') return b.improved;
-        return b.original;
-      }).join('\n\n');
-
+      // Use service for merge logic
+      const finalContent = mergeSelectedChanges(blocks);
       saveImprovementVersion(finalContent, selectedChanges.length);
       navigate('/versions');
     } catch (err) {
@@ -184,7 +133,7 @@ function Improvement() {
         </div>
       </div>
 
-      {/* STEP 9: Selection summary bar */}
+      {/* Selection summary bar */}
       {blocks.length > 0 && (
         <div className="flex items-center gap-4 text-xs font-mono tracking-widest uppercase text-gray-500">
           <span className="text-green-400">{selectedChanges.length} accepted</span>

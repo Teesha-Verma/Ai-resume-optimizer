@@ -13,11 +13,12 @@ const API_BASE = import.meta.env.VITE_API_BASE || '/api';
  * @param {{ resumeText: string, jobDescription: string }} payload
  * @returns {Promise<object>} Analysis result from backend
  */
-export const analyzeResume = async (payload) => {
+export const analyzeResume = async (payload, options = {}) => {
   const res = await fetch(`${API_BASE}/analyze`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
+    ...options,
   });
 
   if (!res.ok) {

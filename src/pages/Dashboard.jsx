@@ -84,7 +84,7 @@ function Dashboard() {
           <h2 className="text-lg font-semibold text-white">Recent Activity</h2>
           {totalAnalyses > 0 && (
             <button 
-              onClick={() => navigate('/analysis')}
+              onClick={() => navigate('/analysis/new')}
               className="text-sm font-medium text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-1"
             >
               New Analysis <ArrowRight className="w-4 h-4" />
@@ -103,7 +103,7 @@ function Dashboard() {
               Upload your resume and a target job description to get a detailed breakdown of your gaps and instant AI improvements.
             </p>
             <button 
-              onClick={() => navigate('/analysis')}
+              onClick={() => navigate('/analysis/new')}
               className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl transition-all shadow-[0_0_20px_rgba(79,70,229,0.3)] hover:shadow-[0_0_25px_rgba(79,70,229,0.5)] flex items-center gap-2"
             >
               Start New Analysis <ArrowRight className="w-4 h-4" />

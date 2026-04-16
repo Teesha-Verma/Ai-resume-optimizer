@@ -2,47 +2,14 @@ import React, { useState } from 'react';
 import { useResume } from '../context/ResumeContext';
 import { ShieldAlert, FileText, UploadCloud, Search, CheckCircle2, AlertTriangle, TrendingDown, FlaskConical } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { analyzeRejection } from '../api/rejection';
-
-// ── STEP 12: Randomised mock pools ───────────────────────────
-const MISSING_KW_POOL = [
-  ['Cloud Infrastructure (AWS/GCP)', 'GraphQL Integration', 'System Architecture Design'],
-  ['Distributed Systems', 'Kubernetes Orchestration', 'Event‑Driven Architecture'],
-  ['Data Engineering', 'Apache Kafka', 'Stream Processing'],
-];
-const WEAK_SECTIONS_POOL = [
-  [
-    'Summary section is too generic and lacks quantitative impact metrics.',
-    'The most recent role description fails to articulate leadership capability despite the Senior title.'
-  ],
-  [
-    'No quantifiable achievements in the last two positions.',
-    'Skills section uses vague terms like "proficient" without evidence.'
-  ],
-];
-const EXP_GAP_POOL = [
-  ['The JD heavily relied on enterprise-scale data migration experience, which your resume only briefly touches upon in a single bullet point.'],
-  ['The role requires 3+ years of ML ops experience, but your resume shows only project-level exposure.'],
-];
-const FMT_ISSUES_POOL = [
-  [
-    'Non-standard section headers detected ("Things I Did" instead of "Experience").',
-    'Complex two-column layout likely broke the ATS parser resulting in missing work history.'
-  ],
-  [
-    'Detected graphics/icons that will be ignored by ATS parsers.',
-    'Inconsistent date formatting across experience entries.'
-  ],
-];
-function pickRandom(pool) { return pool[Math.floor(Math.random() * pool.length)]; }
-// ──────────────────────────────────────────────────────────────
+import { runRejectionAnalysis } from '../services/rejectionService';
 
 function RejectionAnalysis() {
   const { isGlobalLoading, setIsGlobalLoading } = useResume();
   const [file, setFile] = useState(null);
   const [rejectionEmail, setRejectionEmail] = useState('');
   const [result, setResult] = useState(null);
-  const [isSubmitting, setIsSubmitting] = useState(false); // STEP 5: local loading
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleDrop = (e) => {
     e.preventDefault();
@@ -63,11 +30,11 @@ function RejectionAnalysis() {
     setFile(selectedFile);
   };
 
-  const runAnalysis = async () => {
-    // STEP 11: rapid‑click prevention
+  const handleRunAnalysis = async () => {
+    // Rapid-click prevention
     if (isSubmitting || isGlobalLoading) return;
 
-    // STEP 11: empty input validation
+    // Empty input validation
     if (!file) {
       toast.error('Resume upload is required.');
       return;
@@ -81,28 +48,19 @@ function RejectionAnalysis() {
     setIsGlobalLoading(true);
 
     try {
-      // STEP 4: Try real API first
-      const apiResult = await analyzeRejection({
+      // Service handles API-first + mock fallback
+      const analysisResult = await runRejectionAnalysis({
         resumeText: `Extracted from ${file.name}`,
         rejectionEmail: rejectionEmail.trim()
       });
-      setResult(apiResult);
-    } catch (_apiErr) {
-      // ── Fallback to mock (backward‑compatible) ──
-      console.warn('API unavailable – using local mock rejection analysis:', _apiErr.message);
-
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      setResult({
-        missingKeywords: pickRandom(MISSING_KW_POOL),
-        weakSections: pickRandom(WEAK_SECTIONS_POOL),
-        experienceGap: pickRandom(EXP_GAP_POOL),
-        formattingIssues: pickRandom(FMT_ISSUES_POOL),
-      });
+      setResult(analysisResult);
+      toast.success('Post-Mortem Analysis Complete.');
+    } catch (err) {
+      console.error('Rejection analysis failed:', err);
+      toast.error(err?.message || 'Rejection analysis failed. Please try again.');
     } finally {
       setIsGlobalLoading(false);
       setIsSubmitting(false);
-      toast.success('Post-Mortem Analysis Complete.');
     }
   };
 
@@ -162,7 +120,7 @@ function RejectionAnalysis() {
 
           <div className="md:col-span-2 flex justify-end">
             <button 
-              onClick={runAnalysis}
+              onClick={handleRunAnalysis}
               disabled={isBusy || !file || rejectionEmail.length < 20}
               className="px-8 py-4 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-all shadow-[0_0_20px_rgba(79,70,229,0.3)] flex items-center gap-2"
             >

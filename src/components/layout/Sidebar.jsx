@@ -22,7 +22,7 @@ function Sidebar({ isOpen, setIsOpen }) {
 
   const navLinks = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-    { name: 'New Analysis', path: '/analysis', icon: Sparkles },
+    { name: 'New Analysis', path: '/analysis/new', icon: Sparkles },
     { name: 'Latest Results', path: '/results', icon: FileText },
     { name: 'Resume Versions', path: '/versions', icon: History },
     { name: 'Rejection Analysis', path: '/rejection', icon: ShieldAlert },

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
-import { analyzeResume } from '../api/analysis';
+import { runAnalysis } from '../services/analysisService';
+import { generateVersionMeta } from '../services/improvementService';
 
 const ResumeContext = createContext();
 
@@ -12,60 +13,6 @@ const DEFAULT_STATE = {
   analyses: [],
   versions: []
 };
-
-// ── Data‑realism helpers (STEP 12) ─────────────────────────────
-const MISSING_SKILLS_POOL = [
-  ['Kubernetes', 'CI/CD pipelines', 'GraphQL'],
-  ['Docker', 'Terraform', 'Microservices'],
-  ['AWS Lambda', 'Redis', 'gRPC'],
-  ['TypeScript', 'Jest', 'Cypress'],
-  ['Python', 'Machine Learning', 'Data Pipelines'],
-  ['System Design', 'API Gateway', 'OAuth 2.0'],
-];
-
-const WEAK_AREAS_POOL = [
-  [
-    'Impact metrics in your recent role are missing.',
-    'Action verbs are repetitive (used "Responsible for" 4 times).',
-    'Summary section focuses too much on objective rather than value offer.'
-  ],
-  [
-    'Quantifiable achievements are absent from the last two positions.',
-    'Too many generic phrases like "team player" and "hard worker".',
-    'Education section is placed above experience despite 5+ years of work history.'
-  ],
-  [
-    'No mention of cross-functional collaboration despite senior-level roles.',
-    'Bullet points exceed 2 lines, reducing scannability.',
-    'Skills section uses a paragraph format instead of a scannable list.'
-  ],
-];
-
-const ATS_WARNINGS_POOL = [
-  [
-    'Found multiple columns. ATS systems struggle to parse complex layouts.',
-    'Missing standard header "EXPERIENCE".'
-  ],
-  [
-    'Detected tables in your resume. Most ATS parsers cannot read table cells.',
-    'Non-standard date format detected. Use "MMM YYYY" for consistency.'
-  ],
-  [
-    'Header/footer content detected — ATS systems typically skip these areas.',
-    'File contains images or icons that will be ignored by automated parsers.'
-  ],
-];
-
-function pickRandom(pool) {
-  return pool[Math.floor(Math.random() * pool.length)];
-}
-
-function deriveConfidence(score) {
-  if (score >= 75) return 'HIGH';
-  if (score >= 55) return 'MEDIUM';
-  return 'LOW';
-}
-// ───────────────────────────────────────────────────────────────
 
 export function ResumeProvider({ children }) {
   const [data, setData] = useState(DEFAULT_STATE);
@@ -111,72 +58,30 @@ export function ResumeProvider({ children }) {
     }
   }, [activeAnalysisId, activeAnalysis]);
 
-  // ── STEP 2 + 3 + 8 + 12: startAnalysis with API‑first, mock fallback ──
+  // ── startAnalysis: delegates to service layer, context only stores result ──
   const startAnalysis = async (resumeText, jobDescription) => {
     setIsGlobalLoading(true);
 
-    const newId = `analysis_${Date.now()}`;
-    let result;
-
     try {
-      // Try real backend first
-      const apiResult = await analyzeResume({ resumeText, jobDescription });
-      result = {
-        id: apiResult.id || newId,
-        resumeText,
-        jobDescription,
-        score: apiResult.score,
-        confidence: apiResult.confidence || deriveConfidence(apiResult.score),
-        breakdown: apiResult.breakdown,
-        missingSkills: apiResult.missingSkills,
-        weakAreas: apiResult.weakAreas,
-        atsWarnings: apiResult.atsWarnings,
-        improvedContent: apiResult.improvedContent,
-        createdAt: apiResult.createdAt || new Date().toISOString()
-      };
-    } catch (_apiErr) {
-      // ── Fallback to existing mock logic (backward‑compatible) ──
-      console.warn('API unavailable – using local mock analysis:', _apiErr.message);
+      const result = await runAnalysis(resumeText, jobDescription);
 
-      // Fake latency to show off the cool loading state
-      await new Promise(resolve => setTimeout(resolve, 2100));
+      setData(prev => ({
+        ...prev,
+        analyses: [...prev.analyses, result]
+      }));
 
-      const score = Math.floor(Math.random() * 41) + 50; // 50‑90
+      const finalId = result.id;
+      setActiveAnalysisId(finalId);
+      localStorage.setItem(ACTIVE_ANALYSIS_KEY, finalId);
+      toast.success('Analysis Complete');
 
-      result = {
-        id: newId,
-        resumeText,
-        jobDescription,
-        score,
-        confidence: deriveConfidence(score),           // STEP 8
-        breakdown: {
-          skills: Math.floor(Math.random() * 31) + 50,   // 50‑80
-          keywords: Math.floor(Math.random() * 31) + 55, // 55‑85
-          experience: Math.floor(Math.random() * 36) + 35 // 35‑70
-        },
-        missingSkills: pickRandom(MISSING_SKILLS_POOL),   // STEP 12
-        weakAreas: pickRandom(WEAK_AREAS_POOL),
-        atsWarnings: pickRandom(ATS_WARNINGS_POOL),
-        improvedContent:
-          `Here is the AI generated improved content block.\n\n` +
-          `Previously you said: "Responsible for managing databases".\n\n` +
-          `Improved: "Architected and managed distributed PostgreSQL databases, reducing latency by 40%."`,
-        createdAt: new Date().toISOString()
-      };
+      return finalId; // let the component handle redirect
+    } catch (err) {
+      toast.error(err?.message || 'Analysis failed completely');
+      throw err;
+    } finally {
+      setIsGlobalLoading(false);
     }
-
-    setData(prev => ({
-      ...prev,
-      analyses: [...prev.analyses, result]
-    }));
-
-    const finalId = result.id;
-    setActiveAnalysisId(finalId);
-    localStorage.setItem(ACTIVE_ANALYSIS_KEY, finalId);
-    setIsGlobalLoading(false);
-    toast.success('Analysis Complete');
-
-    return finalId; // let the component handle redirect
   };
 
   // ── addAnalysis: lets pages push external API results directly ──
@@ -190,7 +95,7 @@ export function ResumeProvider({ children }) {
   const saveImprovementVersion = (content, changesMade) => {
     const newVersion = {
       versionId: `v_${Date.now()}`,
-      score: (activeAnalysis?.score || 0) + Math.floor(Math.random() * 10) + 5, // mock +5-15% increase
+      score: generateVersionMeta(activeAnalysis?.score),
       content,
       changesMade,
       createdAt: new Date().toISOString()
